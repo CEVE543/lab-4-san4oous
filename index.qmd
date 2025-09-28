@@ -1,7 +1,7 @@
 ---
 title: "CEVE 543 Fall 2025 Lab 4: Bayesian Rainfall Analysis"
 subtitle: "Iterative prior specification, Bayesian GEV workflow, Two-station comparison with ArviZ.jl"
-author: CEVE 543 Fall 2025
+author: Alisa Sannikova
 date: "2025-09-19"
 type: "lab"
 module: 1
@@ -44,49 +44,20 @@ code-line-numbers: false
 code-block-font-size: "0.85em"
 ---
 
-## Do Before Lab {.unnumbered}
-
-1. **Accept the assignment.** Use the GitHub Classroom link posted on Canvas to "accept" the assignment, which will give you your own GitHub repository.
-2. **Clone your repository** to your computer using GitHub Desktop or the command line.
-3. **Open the repository in VS Code** directly from VS Code, GitHub Desktop, or your command line.
-4. **Activate the Julia environment.** In VS Code, open the command palette (View → Command Palette) and type "Julia: Start REPL". Alternatively, run `julia --project=.` in the terminal, then run `using Pkg; Pkg.instantiate()` to install required packages. The easiest method is to type `]` in the REPL to enter package mode, then type `instantiate`.
-5. **Review the Bayesian workflow concepts** from Module 1, particularly prior specification and posterior inference.
-6. **Verify rendering works.** Run `quarto render index.qmd` in your terminal - it should create both PDF and HTML documents.
-
-## Do During Lab {.unnumbered}
-
-This lab guides you through implementing a complete Bayesian workflow for extreme value analysis:
-
-1. **Develop iterative priors** using domain knowledge and prior predictive checks
-2. **Implement Bayesian GEV inference** using Turing.jl with informative priors
-3. **Compare two stations** using the same Bayesian framework
-4. **Validate your models** using modern Bayesian diagnostics with ArviZ.jl
-
-As with previous labs, you do not need to write code from scratch -- focus on understanding the workflow, modifying parameters, and interpreting results.
-
-To submit your work, push your changes to GitHub, render to PDF, and upload the PDF to Canvas.
-
-## Your Analysis {.unnumbered}
-
-::: {.callout-important}
-## Instructions
-Delete this entire section (including the "Do Before Lab" and "Do During Lab" sections above) and replace it with your analysis responses. Use the numbered format below for your final submission.
-:::
-
 **Response 1: Prior Evolution and Justification**
-*How did your understanding of Houston's extreme rainfall evolve through the iterative prior specification process? What knowledge sources proved most valuable for extreme value analysis?*
+*How did your understanding of Houston's extreme rainfall evolve through the iterative prior specification process? What knowledge sources proved most valuable for extreme value analysis? The historical record of rainfall across different parts of Houston provides a foundation for understanding which extreme events have occurred and helps eliminate priors that imply either too little or too much variance, both of which would create unrealistic probabilities. The most important parameters to study from historical records are the typical maximum precipitation, the variance in these maxima, and the tail behavior of the distribution.*
 
 **Response 2: Data Learning and Posterior Insights**
-*How did the observed data change your prior beliefs about GEV parameters? What does this reveal about the balance between domain knowledge and empirical evidence in Bayesian analysis?*
+*How did the observed data change your prior beliefs about GEV parameters? What does this reveal about the balance between domain knowledge and empirical evidence in Bayesian analysis? The MLE and the posterior mean were widely different. This shows that prior values, when specified, can have more power than the MLE for this station in producing the GEV.*
 
 **Response 3: Two-Station Bayesian Comparison**
-*Should the same priors apply to both stations? How do posterior differences relate to geographic and climatic factors, and what are the implications for regional analysis?*
+*Should the same priors apply to both stations? How do posterior differences relate to geographic and climatic factors, and what are the implications for regional analysis? I think that for stations at the same elevation and geographically close to each other, the priors should be the same. However, it is important to note that even geographically close locations can receive different amounts of rainfall due to factors such as the trajectory of the wind.*
 
 **Response 4: Uncertainty Quantification and Model Validation**
-*How does Bayesian uncertainty quantification compare to MLE approaches? What do the diagnostic results tell you about model reliability?*
+*How does Bayesian uncertainty quantification compare to MLE approaches? What do the diagnostic results tell you about model reliability? MLE only provides one value for each parameter, while Bayesian methods give a full distribution for each parameter, which better reflects uncertainty. The trace plots show strong overlap between the chains, indicating good mixing and convergence. This suggests that the model is reliable, since four independent chains all produced consistent results.*
 
 **Response 5: Bayesian Workflow for PS1**
-*How will this iterative workflow experience help you tackle regional extreme value analysis in PS1? What challenges do you anticipate?*
+*How will this iterative workflow experience help you tackle regional extreme value analysis in PS1? What challenges do you anticipate? I anticipate that even stations located close to each other may show large differences in their GEVs. This means I will need to pay closer attention to the geography of the region I am analyzing and potentially specify different priors for different stations.*
 
 ## Data Setup and Package Loading
 
@@ -177,7 +148,7 @@ Next, choose the same station you used in Lab 3 for your analysis.
 
 
 ```{julia}
-my_stnid = 111  # REQUIRED: replace with your chosen station ID
+my_stnid = 779  # REQUIRED: replace with your chosen station ID
 my_station = @chain stations begin
     @filter(stnid == !!my_stnid)  # <1>
     first
@@ -380,7 +351,7 @@ As before, we generate these samples
 prior_idata_v2 = let
     fname = joinpath(lab_dir, "prior_v2.nc")
     model = gev_model_quantile_priors([]; return_level_priors=return_level_priors)
-    overwrite = true
+    overwrite = false
     load_or_sample(fname, model; overwrite=overwrite)
 end
 prior_GEVs_v2 = vec(GeneralizedExtremeValue.(prior_idata_v2.posterior.μ, exp.(prior_idata_v2.posterior.log_σ), prior_idata_v2.posterior.ξ))
@@ -597,7 +568,7 @@ nearest_stations = find_nearest_stations(my_station, stations, 5)
 We will pick one of these five nearest stations for comparison
 
 ```{julia}
-comparison_stnid = 478 # MODIFY THIS AND CHOOSE YOUR COMPARISON
+comparison_stnid = 773 # MODIFY THIS AND CHOOSE YOUR COMPARISON
 
 comparison_station = @chain stations begin
     @filter(stnid == !!comparison_stnid)
@@ -680,10 +651,16 @@ end
 ::: {.callout-note}
 ## Think
 Compare the posterior distributions between the two stations.
-Do the stations show similar extreme rainfall patterns?
+Do the stations show similar extreme rainfall patterns? 
+They do show very similar GEVs
 Which parameters differ most between stations?
+shape parameter 
 How might geographic or climatic factors explain these differences?
+i think that this difference mainly comes from a smaller sample size in the second station and the later start of data collection. 
 Should we have used different priors for each station?
+For these two stations i do not think that we shoud have used different priors.
 Do the return level uncertainties overlap significantly, or are they distinct?
+They overlap significuntly, but for the second station we can notice a bigger uncertainty for higher return periods. 
 What does this tell you about spatial variability in extreme precipitation?
+It can be possible that even very close by grounds can recieve a different amount of rian at certain return periods. 
 :::
